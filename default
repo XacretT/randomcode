@@ -1,0 +1,71 @@
+	listen 80 default; # этот конфиг - умолчательный для 80 порта
+	server_name _;  # хитрый ключик, обозначающий, что этот конфиг применим для любого сайта
+
+	set $sathost $host;  # В sathost будет лежать имя сайта. Так же должна называться директрия с сайтом
+	# убираем www
+	if ( $host ~ ^(www\.)?(.+)$ ) {
+		set $sathost $2;
+	}
+	
+	root   /var/www/all/$sathost; # конень сайта определяем автоматически
+	index index.php index.html index.htm; # в каком порядке искать индексные файлы
+
+	access_log off;	
+#	access_log /var/log/nginx/all/$sathost_access.log; # такая комбинация, к сожалению, не работает. жду пока допилят
+	error_log  /var/log/nginx/all.error.log error;
+
+	location / {   # правила ниже применяются для любых запросов
+                if (!-d /var/www/all/$sathost) { # если не нашли директорию с именем запрошенного сайта
+		# переадресуем на сайт под названием undefined, который лежит в /all/undefined
+		set $sathost undefined;
+		rewrite ^ /index.php last;
+                }
+
+		# начало rewrite
+		set $rflag 1;   # так как логического объединения в условных выражениях нет, то вводим переменную для сложения двух условий. flag указывает на необходимость сделать переадресацию
+		if (-e $request_filename) { # если есть запрошенный файл, то переадресация не нужна
+			set $rflag 0;
+		}
+		if (!-f /var/www/all/$sathost/index.php) { # если нет index.php в корне сайта, то переадресация тоже не нужна, ибо некуда
+			set $rflag 0;
+		}
+		if ($rflag = 1) {  #
+			rewrite  ^ /index.php  last;
+		}
+		# конец rewrite
+
+		if (-f $request_filename) { # для статических файлов включаем кэш на час
+			expires  1h;
+			break;
+		}
+	}
+
+	location ~ \.php$ { # этот блок сработает при запросе .php файлов
+		root   /var/www/all/$sathost;
+		fastcgi_pass   127.0.0.1:9000; # тут висит php-fpm
+		fastcgi_index  index.php;
+		fastcgi_param  SCRIPT_FILENAME  /var/www/all/$sathost/$fastcgi_script_name;
+		include fastcgi_params;
+		break;
+	}
+
+	location ~ \.htm(l?)$ { # этот блок работает при вызове .html или .htm
+		# если в корне сайта лежит файл «.parse_html», то обрабатываем HTML как PHP
+		fastcgi_param  SCRIPT_FILENAME  /var/www/all/$sathost/$fastcgi_script_name;
+		include fastcgi_params;
+		if (!-f $request_filename) { # даже если запросили .html, это не значит что он у нас есть
+		    # соотвественно, если файла нет, то тоже делаем rewrite
+		    rewrite  ^ /index.php  last;
+		}
+		if (-f /var/www/all/$sathost/.parse_html) { # проверяем на наличие метки
+		    # если в директории сайта лежит ключевой файлик, то все html обрабатываем как php
+		    fastcgi_pass   127.0.0.1:9000;
+		}
+		break;
+	}
+	
+
+	location ~ /\.ht { # в файлах, начинающихся на «.ht» могут лежать пароли или оставшиеся настройки от Апача - отдавать это ни к чему.
+		deny  all;
+	}
+}
