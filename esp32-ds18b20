@@ -1,0 +1,45 @@
+/*
+ * Rui Santos 
+ * Complete Project Details https://randomnerdtutorials.com
+ */
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+
+#define WIFISSID "VegaLife" // Put your WifiSSID here
+#define PASSWORD "Awesome unicorns dont ride whales" // Put your wifi password here
+#define MQTTLOGIN "hzaydclx" // Put your MQTT LOGIN
+#define MQTTPWD "8hT2f7WKRSes" // Put your MQTT PASSWORD
+#define DEVICE_LABEL "esp32-7jsiOpR" // Assig the device label to subscribe
+#define MQTT_CLIENT_NAME "esp32-7jsiOpR" // MQTT client Name, put a Random ASCII
+#define mqttBroker "farmer.cloudmqtt.com" // MQTT Server address
+#define MQTTPORT 11708 // Port of the MQTT Server
+const int oneWireBus = 4;  
+
+OneWire oneWire(oneWireBus);
+DallasTemperature sensors(&oneWire);
+
+void setup(void) {
+  Serial.begin(115200);
+  Serial.println("");
+  Serial.print("Sketch: "); Serial.println(__FILE__);
+  Serial.print("Uploaded: "); Serial.println(__DATE__);
+  Serial.println(" ");
+  Serial.println("VegMon v0.1 - Powered By Ponics Technologies http://ponics.tech");
+  Serial.println("BootStrap...");
+  sensors.begin();
+  delay(1000); 
+  sensors.requestTemperatures();
+  pinMode(oneWireBus, OUTPUT); // Set to DRIVER(NORMAL)
+
+}
+
+void loop(void) {
+  sensors.requestTemperatures(); 
+  delay(1000); 
+  float temperatureC = sensors.getTempCByIndex(0);
+  Serial.print(temperatureC);
+  Serial.println("ºC");
+  delay(1000);
+}
